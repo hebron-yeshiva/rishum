@@ -14,9 +14,20 @@
         .scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
         .scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
         .scrollbar::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 4px; }
+        .mLabel { display: block; font-size: .8rem; font-weight: 700; color: #475569; margin-bottom: .35rem; }
+        .mInput { width: 100%; border: 2px solid #e2e8f0; border-radius: .75rem; padding: .6rem 1rem; font-size: .875rem; font-family: inherit; outline: none; transition: border-color .15s, box-shadow .15s; background: #fff; }
+        .mInput:focus { border-color: #60a5fa; box-shadow: 0 0 0 4px rgba(96,165,250,.15); }
+        .mInput.error { border-color: #f87171; background: #fff7f7; }
     </style>
 </head>
 <body class="min-h-screen bg-slate-50">
+
+    <!-- Admin Impersonation Banner -->
+    <div id="adminBanner" class="hidden bg-amber-400 text-slate-900 px-4 py-2 text-sm font-bold text-center sticky top-0 z-50">
+        <span id="adminBannerText"></span>
+        &nbsp;|&nbsp;
+        <button onclick="window.close()" class="underline hover:no-underline">סגור לשונית וחזור ללוח הבקרה</button>
+    </div>
 
     <!-- Header -->
     <header class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-40">
@@ -32,7 +43,7 @@
                     <p id="institutionName" class="text-sm text-blue-600 font-semibold">טוען...</p>
                 </div>
             </div>
-            <button onclick="doLogout()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-xl transition font-semibold text-sm border border-slate-200 hover:border-red-200">
+            <button id="logoutBtn" onclick="doLogout()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-xl transition font-semibold text-sm border border-slate-200 hover:border-red-200">
                 יציאה
             </button>
         </div>
@@ -61,10 +72,14 @@
         </div>
 
         <!-- Tabs -->
-        <div class="flex gap-2 mb-6">
+        <div class="flex gap-2 mb-6 flex-wrap">
             <button onclick="switchTab('upload')" id="tab-upload"
                 class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-blue-600 text-white shadow">
-                ➕ העלאת תלמידים חדשים
+                ➕ העלאה מאקסל
+            </button>
+            <button onclick="switchTab('manual')" id="tab-manual"
+                class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+                ✎ רישום ידני
             </button>
             <button onclick="switchTab('list')" id="tab-list"
                 class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
@@ -185,6 +200,122 @@
             </div>
         </div>
 
+        <!-- ===== MANUAL ENTRY TAB ===== -->
+        <div id="tab-manual-content" class="hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                    <div class="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">✎</div>
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">רישום תלמיד ידני</h2>
+                        <p class="text-sm text-slate-500">מלא את הפרטים ולחץ "שמור תלמיד". שדות עם <span class="text-red-500 font-bold">*</span> הם חובה.</p>
+                    </div>
+                </div>
+                <div class="p-6 space-y-6 max-w-4xl">
+                    <p id="manualError"   class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold"></p>
+                    <p id="manualSuccess" class="hidden bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold"></p>
+
+                    <!-- Student -->
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 pb-2 border-b border-slate-100">פרטי תלמיד</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div><label class="mLabel">שם משפחה <span class="text-red-500">*</span></label><input type="text" id="m_lastName"    class="mInput" placeholder="ישראלי"></div>
+                            <div><label class="mLabel">שם פרטי <span class="text-red-500">*</span></label><input type="text" id="m_firstName"   class="mInput" placeholder="ישראל"></div>
+                            <div>
+                                <label class="mLabel">ת.ז. תלמיד <span class="text-red-500">*</span></label>
+                                <input type="text" id="m_idNumber" class="mInput font-mono" placeholder="000000000" dir="ltr" maxlength="9" oninput="validateManualField('m_idNumber','idNumber')">
+                                <p id="m_idNumber_err" class="hidden text-xs text-red-600 mt-1 font-semibold">ת.ז. לא תקינה</p>
+                            </div>
+                            <div><label class="mLabel">מספר דרכון</label><input type="text" id="m_passport"  class="mInput font-mono" placeholder="00000000" dir="ltr"></div>
+                            <div><label class="mLabel">תאריך לידה</label><input type="text" id="m_birthDate" class="mInput" placeholder="01/01/2000"></div>
+                            <div>
+                                <label class="mLabel">נייד תלמיד</label>
+                                <input type="text" id="m_mobile" class="mInput font-mono" placeholder="050-0000000" dir="ltr" oninput="validateManualField('m_mobile','mobile')">
+                                <p id="m_mobile_err" class="hidden text-xs text-red-600 mt-1 font-semibold">מספר טלפון לא תקין</p>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="mLabel">מייל הורים</label>
+                                <input type="email" id="m_parentEmail" class="mInput" placeholder="parents@example.com" dir="ltr" oninput="validateManualField('m_parentEmail','parentEmail')">
+                                <p id="m_parentEmail_err" class="hidden text-xs text-red-600 mt-1 font-semibold">כתובת מייל לא תקינה</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 pb-2 border-b border-slate-100">כתובת</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div><label class="mLabel">עיר / ישוב</label><input type="text" id="m_city"      class="mInput" placeholder="ירושלים"></div>
+                            <div><label class="mLabel">רחוב</label>      <input type="text" id="m_street"    class="mInput" placeholder="הרב קוק"></div>
+                            <div><label class="mLabel">מס' בית</label>   <input type="text" id="m_houseNum"  class="mInput" placeholder="12" dir="ltr"></div>
+                            <div><label class="mLabel">דירה</label>      <input type="text" id="m_apt"       class="mInput" placeholder="3" dir="ltr"></div>
+                            <div>
+                                <label class="mLabel">טלפון בית</label>
+                                <input type="text" id="m_homePhone" class="mInput font-mono" placeholder="02-0000000" dir="ltr" oninput="validateManualField('m_homePhone','homePhone')">
+                                <p id="m_homePhone_err" class="hidden text-xs text-red-600 mt-1 font-semibold">מספר טלפון לא תקין</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Father -->
+                    <div>
+                        <p class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-3 pb-2 border-b border-blue-100">פרטי אב</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div><label class="mLabel">שם אב</label>    <input type="text" id="m_fatherName"     class="mInput" placeholder="אברהם ישראלי"></div>
+                            <div>
+                                <label class="mLabel">ת.ז. אב</label>
+                                <input type="text" id="m_fatherId" class="mInput font-mono" placeholder="000000000" dir="ltr" maxlength="9" oninput="validateManualField('m_fatherId','fatherId')">
+                                <p id="m_fatherId_err" class="hidden text-xs text-red-600 mt-1 font-semibold">ת.ז. לא תקינה</p>
+                            </div>
+                            <div><label class="mLabel">דרכון אב</label>  <input type="text" id="m_fatherPassport" class="mInput font-mono" placeholder="00000000" dir="ltr"></div>
+                            <div>
+                                <label class="mLabel">נייד אב</label>
+                                <input type="text" id="m_fatherMobile" class="mInput font-mono" placeholder="050-0000000" dir="ltr" oninput="validateManualField('m_fatherMobile','fatherMobile')">
+                                <p id="m_fatherMobile_err" class="hidden text-xs text-red-600 mt-1 font-semibold">מספר טלפון לא תקין</p>
+                            </div>
+                            <div><label class="mLabel">תפקיד אב</label>  <input type="text" id="m_fatherRole"     class="mInput" placeholder="עורך דין"></div>
+                        </div>
+                    </div>
+
+                    <!-- Mother -->
+                    <div>
+                        <p class="text-xs font-bold text-pink-600 uppercase tracking-wide mb-3 pb-2 border-b border-pink-100">פרטי אם</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div><label class="mLabel">שם אם</label>    <input type="text" id="m_motherName"     class="mInput" placeholder="שרה ישראלי"></div>
+                            <div>
+                                <label class="mLabel">ת.ז. אם</label>
+                                <input type="text" id="m_motherId" class="mInput font-mono" placeholder="000000000" dir="ltr" maxlength="9" oninput="validateManualField('m_motherId','motherId')">
+                                <p id="m_motherId_err" class="hidden text-xs text-red-600 mt-1 font-semibold">ת.ז. לא תקינה</p>
+                            </div>
+                            <div><label class="mLabel">דרכון אם</label>  <input type="text" id="m_motherPassport" class="mInput font-mono" placeholder="00000000" dir="ltr"></div>
+                            <div>
+                                <label class="mLabel">נייד אם</label>
+                                <input type="text" id="m_motherMobile" class="mInput font-mono" placeholder="050-0000000" dir="ltr" oninput="validateManualField('m_motherMobile','motherMobile')">
+                                <p id="m_motherMobile_err" class="hidden text-xs text-red-600 mt-1 font-semibold">מספר טלפון לא תקין</p>
+                            </div>
+                            <div><label class="mLabel">תפקיד אם</label>  <input type="text" id="m_motherRole"     class="mInput" placeholder="מורה"></div>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 pb-2 border-b border-slate-100">הערות</p>
+                        <textarea id="m_notes" rows="2" placeholder="הערות נוספות..." class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-blue-400 focus:ring-4 focus:ring-blue-50 outline-none transition resize-none font-medium"></textarea>
+                    </div>
+
+                    <div class="flex justify-between items-center pt-2">
+                        <button onclick="clearManualForm()" class="text-slate-400 hover:text-slate-600 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-slate-100 transition">נקה טופס</button>
+                        <button onclick="saveManualStudent()" id="manualSaveBtn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-10 py-3 rounded-xl font-bold shadow-lg transition flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                            </svg>
+                            שמור תלמיד
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== LIST TAB ===== -->
         <div id="tab-list-content" class="hidden">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -231,6 +362,8 @@
         // ===== State =====
         let currentUser     = null;
         let currentUserData = null;
+        let isAdminView     = false;
+        const adminViewUid  = new URLSearchParams(window.location.search).get('adminView');
         let rawRows         = [];
         let excelHeaders    = [];
         let parsedStudents  = [];
@@ -252,26 +385,85 @@
             { id: 'homePhone',    label: 'טלפון בית' },
             { id: 'mobile',       label: 'נייד תלמיד' },
             { id: 'parentEmail',  label: 'מייל הורים' },
-            { id: 'fatherName',   label: 'שם אב',       color: 'text-blue-700' },
-            { id: 'fatherId',     label: 'ת.ז. אב',     color: 'text-blue-700' },
-            { id: 'fatherMobile', label: 'נייד אב',     color: 'text-blue-700' },
-            { id: 'motherName',   label: 'שם אם',       color: 'text-pink-600' },
-            { id: 'motherId',     label: 'ת.ז. אם',     color: 'text-pink-600' },
-            { id: 'motherMobile', label: 'נייד אם',     color: 'text-pink-600' },
-            { id: 'notes',        label: 'הערות',       color: 'text-emerald-700' },
+            { id: 'fatherName',     label: 'שם אב',         color: 'text-blue-700' },
+            { id: 'fatherId',       label: 'ת.ז. אב',       color: 'text-blue-700' },
+            { id: 'fatherPassport', label: 'דרכון אב',       color: 'text-blue-700' },
+            { id: 'fatherMobile',   label: 'נייד אב',       color: 'text-blue-700' },
+            { id: 'fatherRole',     label: 'תפקיד אב',      color: 'text-blue-700' },
+            { id: 'motherName',     label: 'שם אם',         color: 'text-pink-600' },
+            { id: 'motherId',       label: 'ת.ז. אם',       color: 'text-pink-600' },
+            { id: 'motherPassport', label: 'דרכון אם',       color: 'text-pink-600' },
+            { id: 'motherMobile',   label: 'נייד אם',       color: 'text-pink-600' },
+            { id: 'motherRole',     label: 'תפקיד אם',      color: 'text-pink-600' },
+            { id: 'notes',          label: 'הערות',         color: 'text-emerald-700' },
         ];
+
+        // ===== Gemini AI =====
+        const GEMINI_KEY = "AIzaSyARSkGOIlN27K41XFQeDNn4snKqkX25zdU";
+
+        async function analyzeWithAI(headers, sampleRow) {
+            const fieldIds = FIELDS.map(f => f.id).join(', ');
+            const prompt = `You are a data mapping assistant for Hebrew student records.
+Map each Excel column header to the correct system field ID.
+System fields: ${fieldIds}.
+Excel headers: ${JSON.stringify(headers)}.
+Sample data row: ${JSON.stringify(sampleRow)}.
+Return ONLY a JSON object: {"mappings": ["field_id_1", "field_id_2", ...]}
+Array length MUST equal ${headers.length}. Use "ignore" for unknown/serial columns.`;
+
+            const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseMimeType: 'application/json' }
+                    })
+                }
+            );
+            if (!res.ok) throw new Error('AI error');
+            const data = await res.json();
+            const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
+            return parsed.mappings || [];
+        }
 
         // ===== Auth check =====
         auth.onAuthStateChanged(async (user) => {
             if (!user) { window.location.href = 'login.html'; return; }
             const doc = await db.collection('users').doc(user.uid).get();
-            if (!doc.exists || doc.data().role !== 'feeder') {
+            if (!doc.exists) { window.location.href = 'login.html'; return; }
+            const role = doc.data().role;
+
+            if (adminViewUid && (role === 'admin' || role === 'superadmin')) {
+                // Admin impersonation mode
+                const feederDoc = await db.collection('users').doc(adminViewUid).get();
+                if (!feederDoc.exists || feederDoc.data().role !== 'feeder') {
+                    alert('ישיבה קטנה לא נמצאה.');
+                    window.close();
+                    return;
+                }
+                isAdminView     = true;
+                currentUser     = { uid: adminViewUid };
+                currentUserData = feederDoc.data();
+                document.getElementById('institutionName').textContent = currentUserData.name || adminViewUid;
+                // Show banner
+                document.getElementById('adminBannerText').textContent =
+                    `👁 מצב תצפית: אתה רואה את המערכת כ"${currentUserData.name || adminViewUid}"`;
+                document.getElementById('adminBanner').classList.remove('hidden');
+                // Hide upload tab in view-only mode
+                document.getElementById('tab-upload').classList.add('hidden');
+                document.getElementById('logoutBtn').classList.add('hidden');
+                switchTab('list');
+                startListening();
+            } else if (role !== 'feeder') {
                 window.location.href = 'login.html'; return;
+            } else {
+                currentUser     = user;
+                currentUserData = doc.data();
+                document.getElementById('institutionName').textContent = currentUserData.name || user.email;
+                startListening();
             }
-            currentUser     = user;
-            currentUserData = doc.data();
-            document.getElementById('institutionName').textContent = currentUserData.name || user.email;
-            startListening();
         });
 
         function doLogout() {
@@ -282,10 +474,12 @@
         // ===== Tabs =====
         function switchTab(tab) {
             document.getElementById('tab-upload-content').classList.toggle('hidden', tab !== 'upload');
+            document.getElementById('tab-manual-content').classList.toggle('hidden', tab !== 'manual');
             document.getElementById('tab-list-content').classList.toggle('hidden', tab !== 'list');
             const active   = 'px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-blue-600 text-white shadow';
             const inactive = 'px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
             document.getElementById('tab-upload').className = tab === 'upload' ? active : inactive;
+            document.getElementById('tab-manual').className = tab === 'manual' ? active : inactive;
             document.getElementById('tab-list').className   = tab === 'list'   ? active : inactive;
         }
 
@@ -296,7 +490,7 @@
             document.getElementById('step3').classList.add('hidden');
         }
 
-        function goToStep2(fromStep3 = false) {
+        async function goToStep2(fromStep3 = false) {
             document.getElementById('step1Error').classList.add('hidden');
             if (!fromStep3) {
                 const input = document.getElementById('excelInput').value.trim();
@@ -306,7 +500,33 @@
                     return;
                 }
                 parseRawInput(input);
-                buildMappingUI();
+
+                // AI loading state
+                const btn = document.getElementById('toStep2Btn');
+                btn.innerHTML = '<svg class="animate-spin h-4 w-4 inline ml-1" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> AI מנתח עמודות...';
+                btn.disabled = true;
+
+                // Build sample row for AI
+                const hasH = document.getElementById('hasHeaders').checked;
+                const startIdx = hasH ? 1 : 0;
+                const sampleRow = excelHeaders.map((_, ci) => {
+                    for (let r = startIdx; r < rawRows.length; r++) {
+                        if (rawRows[r]?.[ci]?.trim()) return rawRows[r][ci].trim();
+                    }
+                    return '';
+                });
+
+                let aiMappings = null;
+                try {
+                    aiMappings = await analyzeWithAI(excelHeaders, sampleRow);
+                } catch(e) {
+                    console.warn('AI failed, using regex fallback:', e);
+                }
+
+                btn.innerHTML = 'המשך לשיוך עמודות ←';
+                btn.disabled = false;
+
+                buildMappingUI(aiMappings);
             }
             document.getElementById('step1').classList.add('hidden');
             document.getElementById('step2').classList.remove('hidden');
@@ -393,7 +613,7 @@
         }
 
         // ===== Build mapping UI =====
-        function buildMappingUI() {
+        function buildMappingUI(aiMappings = null) {
             const headersRow = document.getElementById('mapHeadersRow');
             const selectsRow = document.getElementById('mapSelectsRow');
             const dataBody   = document.getElementById('mapDataBody');
@@ -416,7 +636,9 @@
                 sel.id = `map_${i}`;
                 sel.className = 'w-full p-1.5 border border-blue-200 rounded-lg text-sm text-slate-700 bg-white focus:ring-2 focus:ring-blue-300 outline-none cursor-pointer';
                 sel.innerHTML = optHTML;
-                sel.value = guessField(header);
+                // Use AI suggestion if available, otherwise regex
+                const suggested = aiMappings ? (aiMappings[i] || 'ignore') : guessField(header);
+                sel.value = FIELDS.find(f => f.id === suggested) ? suggested : guessField(header);
                 thS.appendChild(sel);
                 selectsRow.appendChild(thS);
             });
@@ -449,17 +671,30 @@
 
         function validatePhone(val) {
             if (!val) return { valid: true, formatted: '' };
-            const c = String(val).replace(/\D/g, '');
+            let c = String(val).replace(/\D/g, '');
+            // Add missing leading zero for Israeli numbers (8-9 digits, no leading 0)
+            if (/^\d{8,9}$/.test(c) && !c.startsWith('0')) c = '0' + c;
             if (/^0\d{8,9}$/.test(c)) {
-                return { valid: true, formatted: (c.startsWith('05') || c.startsWith('07')) ? `${c.slice(0,3)}-${c.slice(3)}` : `${c.slice(0,2)}-${c.slice(2)}` };
+                const fmt = (c.startsWith('05') || c.startsWith('07'))
+                    ? `${c.slice(0,3)}-${c.slice(3)}`
+                    : `${c.slice(0,2)}-${c.slice(2)}`;
+                return { valid: true, formatted: fmt };
             }
-            return { valid: false, formatted: val };
+            return { valid: false, formatted: String(val).trim() };
+        }
+
+        function validateEmail(val) {
+            if (!val) return { valid: true, formatted: '' };
+            const f = String(val).trim().toLowerCase();
+            return { valid: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f), formatted: f };
         }
 
         function processField(fieldId, value) {
             if (['idNumber','fatherId','motherId'].includes(fieldId)) return validateID(value);
             if (['homePhone','mobile','fatherMobile','motherMobile'].includes(fieldId)) return validatePhone(value);
-            return { valid: true, formatted: String(value || '').trim() };
+            if (fieldId === 'parentEmail') return validateEmail(value);
+            // General: trim + collapse internal spaces
+            return { valid: true, formatted: String(value || '').replace(/\s+/g, ' ').trim() };
         }
 
         // ===== Process data =====
@@ -604,6 +839,124 @@
             }
         }
 
+        // ===== Manual Entry =====
+        const MANUAL_FIELDS = [
+            'lastName','firstName','idNumber','passport','birthDate','mobile','parentEmail',
+            'city','street','houseNum','apt','homePhone',
+            'fatherName','fatherId','fatherPassport','fatherMobile','fatherRole',
+            'motherName','motherId','motherPassport','motherMobile','motherRole',
+            'notes'
+        ];
+        const MANUAL_VALIDATED = {
+            idNumber: 'idNumber', fatherId: 'fatherId', motherId: 'motherId',
+            mobile: 'mobile', homePhone: 'homePhone', fatherMobile: 'fatherMobile', motherMobile: 'motherMobile',
+            parentEmail: 'parentEmail'
+        };
+
+        function validateManualField(inputId, fieldId) {
+            const el  = document.getElementById(inputId);
+            const err = document.getElementById(inputId + '_err');
+            if (!el || !err) return true;
+            const val = el.value.trim();
+            if (!val) {
+                el.classList.remove('error');
+                err.classList.add('hidden');
+                return true;
+            }
+            const { valid } = processField(fieldId, val);
+            el.classList.toggle('error', !valid);
+            err.classList.toggle('hidden', valid);
+            return valid;
+        }
+
+        function clearManualForm() {
+            MANUAL_FIELDS.forEach(f => {
+                const el = document.getElementById('m_' + f);
+                if (el) { el.value = ''; el.classList.remove('error'); }
+                const err = document.getElementById('m_' + f + '_err');
+                if (err) err.classList.add('hidden');
+            });
+            document.getElementById('manualError').classList.add('hidden');
+            document.getElementById('manualSuccess').classList.add('hidden');
+        }
+
+        async function saveManualStudent() {
+            const errDiv  = document.getElementById('manualError');
+            const succDiv = document.getElementById('manualSuccess');
+            errDiv.classList.add('hidden');
+            succDiv.classList.add('hidden');
+
+            // Collect + validate
+            const student = {};
+            let hasError  = false;
+
+            for (const f of MANUAL_FIELDS) {
+                const el  = document.getElementById('m_' + f);
+                if (!el) continue;
+                const raw = el.value;
+                const { valid, formatted } = processField(f, raw);
+                student[f] = formatted;
+                // Show field-level error if not valid and has a value
+                if (formatted && !valid && MANUAL_VALIDATED[f]) {
+                    el.classList.add('error');
+                    const errEl = document.getElementById('m_' + f + '_err');
+                    if (errEl) errEl.classList.remove('hidden');
+                    hasError = true;
+                }
+            }
+
+            // Required fields
+            if (!student.lastName || !student.firstName) {
+                errDiv.textContent = 'נא למלא שם פרטי ושם משפחה.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+            if (!student.idNumber) {
+                errDiv.textContent = 'נא למלא מספר תעודת זהות.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+            if (hasError) {
+                errDiv.textContent = 'יש שדות עם שגיאות (מסומנים באדום). תקן ונסה שוב.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Check duplicate
+            const docId = `${currentUserData.yeshivaId}_${student.idNumber}`;
+            const existing = await db.collection('students').doc(docId).get();
+            if (existing.exists) {
+                errDiv.textContent = `תלמיד עם ת.ז. ${student.idNumber} כבר קיים במערכת.`;
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            const btn = document.getElementById('manualSaveBtn');
+            btn.disabled = true;
+            btn.textContent = 'שומר...';
+
+            try {
+                await db.collection('students').doc(docId).set({
+                    ...student,
+                    feederUid:  currentUser.uid,
+                    feederName: currentUserData.name,
+                    yeshivaId:  currentUserData.yeshivaId,
+                    status:     'pending',
+                    uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
+                succDiv.textContent = `✓ התלמיד ${student.lastName} ${student.firstName} נשמר בהצלחה!`;
+                succDiv.classList.remove('hidden');
+                clearManualForm();
+                succDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } catch(e) {
+                errDiv.textContent = 'שגיאה בשמירה: ' + e.message;
+                errDiv.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> שמור תלמיד';
+            }
+        }
+
         // ===== Real-time student list =====
         function startListening() {
             if (!currentUser) return;
@@ -637,8 +990,9 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-400 font-medium">לא הוגשו תלמידים עדיין</td></tr>';
                 return;
             }
-            const statusLabel = { pending: 'ממתין', approved: 'התקבל', rejected: 'לא התקבל' };
-            const statusCls   = { pending: 'bg-amber-100 text-amber-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700' };
+            // 'doubtful' מוצג לישיבה קטנה כ"לא התקבל" — כדי למנוע לחץ
+            const statusLabel = { pending: 'ממתין', approved: 'התקבל', rejected: 'לא התקבל', doubtful: 'לא התקבל' };
+            const statusCls   = { pending: 'bg-amber-100 text-amber-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700', doubtful: 'bg-red-100 text-red-700' };
             const docs = snap.docs.slice().sort((a,b) => {
                 const ta = a.data().uploadedAt?.toDate?.() || 0;
                 const tb = b.data().uploadedAt?.toDate?.() || 0;
