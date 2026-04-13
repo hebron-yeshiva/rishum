@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת רישום - כניסה</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>body { font-family: 'Assistant', sans-serif; }</style>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-4">
+
+    <div class="w-full max-w-md">
+        <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-8 py-10 text-center">
+                <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-extrabold text-white">מערכת רישום חכמה</h1>
+                <p class="text-blue-100 mt-1 font-medium">כניסה למערכת</p>
+            </div>
+
+            <!-- Form -->
+            <div class="px-8 py-8">
+                <div id="errorMsg" class="hidden bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl mb-6 text-sm font-semibold flex items-start gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="12" stroke-width="2"/><line x1="12" y1="16" x2="12.01" y2="16" stroke-width="2"/></svg>
+                    <span id="errorText"></span>
+                </div>
+
+                <form id="loginForm" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">כתובת מייל</label>
+                        <input type="email" id="email" required dir="ltr" autocomplete="email"
+                            class="w-full border-2 border-slate-200 rounded-xl px-4 py-3.5 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all font-medium text-slate-800 placeholder-slate-400"
+                            placeholder="example@gmail.com">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">סיסמה</label>
+                        <input type="password" id="password" required dir="ltr" autocomplete="current-password"
+                            class="w-full border-2 border-slate-200 rounded-xl px-4 py-3.5 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all font-medium text-slate-800 placeholder-slate-400"
+                            placeholder="••••••••">
+                    </div>
+
+                    <button type="submit" id="loginBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                        <span id="loginBtnText">כניסה למערכת</span>
+                        <svg id="loginSpinner" class="hidden animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <p class="text-center text-blue-200/50 text-sm mt-6">SmartReg &copy; 2026</p>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBjFzsDY5n990Rd2-F_jU8-Y_SKTeswsb8",
+            authDomain: "smartreg26.firebaseapp.com",
+            projectId: "smartreg26",
+            storageBucket: "smartreg26.firebasestorage.app",
+            messagingSenderId: "40501808540",
+            appId: "1:40501808540:web:840e7aa6a136fab1ab0c59"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // If already logged in, redirect immediately
+        auth.onAuthStateChanged(async (user) => {
+            if (user) await redirectByRole(user.uid);
+        });
+
+        async function redirectByRole(uid) {
+            try {
+                const doc = await db.collection('users').doc(uid).get();
+                if (!doc.exists) return;
+                const role = doc.data().role;
+                if (role === 'admin' || role === 'superadmin') {
+                    window.location.href = 'admin-dashboard.html';
+                } else if (role === 'feeder') {
+                    window.location.href = 'feeder-upload.html';
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function showError(msg) {
+            document.getElementById('errorText').textContent = msg;
+            document.getElementById('errorMsg').classList.remove('hidden');
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email    = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const btn      = document.getElementById('loginBtn');
+            document.getElementById('errorMsg').classList.add('hidden');
+            document.getElementById('loginBtnText').textContent = 'מתחבר...';
+            document.getElementById('loginSpinner').classList.remove('hidden');
+            btn.disabled = true;
+
+            try {
+                const cred = await auth.signInWithEmailAndPassword(email, password);
+                await redirectByRole(cred.user.uid);
+            } catch(e) {
+                const msgs = {
+                    'auth/user-not-found':     'מייל או סיסמה שגויים.',
+                    'auth/wrong-password':     'מייל או סיסמה שגויים.',
+                    'auth/invalid-credential': 'מייל או סיסמה שגויים.',
+                    'auth/too-many-requests':  'יותר מדי ניסיונות. נסה שוב מאוחר יותר.',
+                    'auth/user-disabled':      'חשבון זה מושבת. פנה למנהל.',
+                };
+                showError(msgs[e.code] || e.message || 'שגיאה בכניסה. נסה שוב.');
+                document.getElementById('loginBtnText').textContent = 'כניסה למערכת';
+                document.getElementById('loginSpinner').classList.add('hidden');
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>העלאת תלמידים - מערכת רישום</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        body { font-family: 'Assistant', sans-serif; }
+        .scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+        .scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .scrollbar::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-slate-800 text-base leading-tight">מערכת רישום חכמה</h1>
+                    <p id="institutionName" class="text-sm text-blue-600 font-semibold">טוען...</p>
+                </div>
+            </div>
+            <button onclick="doLogout()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-xl transition font-semibold text-sm border border-slate-200 hover:border-red-200">
+                יציאה
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+        <!-- Stats -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <p class="text-slate-500 text-xs font-semibold uppercase tracking-wide mb-1">סה"כ הוגש</p>
+                <p id="statTotal" class="text-3xl font-extrabold text-slate-800">—</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <p class="text-slate-500 text-xs font-semibold uppercase tracking-wide mb-1">ממתין</p>
+                <p id="statPending" class="text-3xl font-extrabold text-amber-500">—</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <p class="text-slate-500 text-xs font-semibold uppercase tracking-wide mb-1">התקבל</p>
+                <p id="statApproved" class="text-3xl font-extrabold text-green-500">—</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <p class="text-slate-500 text-xs font-semibold uppercase tracking-wide mb-1">לא התקבל</p>
+                <p id="statRejected" class="text-3xl font-extrabold text-red-500">—</p>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-6">
+            <button onclick="switchTab('upload')" id="tab-upload"
+                class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-blue-600 text-white shadow">
+                ➕ העלאת תלמידים חדשים
+            </button>
+            <button onclick="switchTab('list')" id="tab-list"
+                class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+                📋 תלמידים שהגשתי
+            </button>
+        </div>
+
+        <!-- ===== UPLOAD TAB ===== -->
+        <div id="tab-upload-content">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+
+                <!-- Step 1: Paste -->
+                <div id="step1">
+                    <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
+                            <div>
+                                <h2 class="text-base font-bold text-slate-800">הדבקת נתונים מאקסל</h2>
+                                <p class="text-sm text-slate-500">סמן נתונים באקסל (כולל שורת כותרות) ← Ctrl+C ← הדבק כאן עם Ctrl+V</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <textarea id="excelInput" rows="5"
+                            class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-50 outline-none text-sm font-mono bg-slate-50 resize-y transition-all"
+                            placeholder="הדבק כאן (Ctrl+V)..."></textarea>
+
+                        <!-- Paste preview -->
+                        <div id="pastePreview" class="hidden mt-4 border border-slate-200 rounded-xl overflow-hidden">
+                            <div class="flex items-center justify-between bg-slate-50 px-4 py-2 border-b border-slate-200">
+                                <span class="text-xs font-bold text-slate-600">תצוגה מקדימה (עד 5 שורות)</span>
+                                <button onclick="clearPaste()" class="text-xs text-red-500 hover:text-red-700 font-bold transition">✕ נקה</button>
+                            </div>
+                            <div class="overflow-x-auto scrollbar max-h-40">
+                                <table class="w-full text-xs whitespace-nowrap">
+                                    <thead id="previewHead" class="bg-slate-100"></thead>
+                                    <tbody id="previewBody" class="bg-white divide-y divide-slate-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 flex items-center justify-between flex-wrap gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" id="hasHeaders" checked class="w-4 h-4 text-blue-600 rounded cursor-pointer">
+                                <span class="text-sm text-slate-700 font-medium">השורה הראשונה היא כותרת עמודות</span>
+                            </label>
+                            <button id="toStep2Btn" onclick="goToStep2()" disabled
+                                class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-7 py-2.5 rounded-xl font-bold text-sm transition-all shadow disabled:shadow-none">
+                                המשך לשיוך עמודות ←
+                            </button>
+                        </div>
+                        <p id="step1Error" class="hidden mt-3 text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-200 font-medium"></p>
+                    </div>
+                </div>
+
+                <!-- Step 2: Column Mapping -->
+                <div id="step2" class="hidden">
+                    <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">2</div>
+                            <div>
+                                <h2 class="text-base font-bold text-slate-800">שיוך עמודות לשדות המערכת</h2>
+                                <p class="text-sm text-slate-500">לכל עמודה מאקסל — בחר את השדה המתאים. שדות עם <span class="text-red-500 font-bold">*</span> הם חובה.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto scrollbar border border-slate-200 rounded-xl">
+                            <table class="w-full text-sm whitespace-nowrap border-collapse">
+                                <thead>
+                                    <tr id="mapHeadersRow" class="bg-slate-50 border-b-2 border-slate-200 text-slate-700 font-bold"></tr>
+                                    <tr id="mapSelectsRow" class="bg-blue-50/40 border-b border-blue-100"></tr>
+                                </thead>
+                                <tbody id="mapDataBody" class="text-xs font-mono text-slate-600 divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                        <p id="step2Error" class="hidden mt-4 text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-200 font-medium"></p>
+                        <div class="mt-5 flex justify-between">
+                            <button onclick="goToStep1()" class="text-slate-500 hover:text-slate-800 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-slate-100 transition">→ חזור</button>
+                            <button onclick="processData()" class="bg-green-600 hover:bg-green-700 text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow transition">עבד נתונים ←</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Review & Save -->
+                <div id="step3" class="hidden">
+                    <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-green-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">3</div>
+                            <div>
+                                <h2 class="text-base font-bold text-slate-800">סקירה ושמירה</h2>
+                                <p class="text-sm text-slate-500">תאי עם רקע אדום עשויים להכיל שגיאה — לחץ לעריכה. אחר כך לחץ "שמור".</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="step3Summary" class="flex flex-wrap items-center gap-4 mb-4 p-4 bg-blue-50 rounded-xl border border-blue-100 text-sm font-semibold text-slate-700"></div>
+                        <div class="overflow-x-auto scrollbar border border-slate-200 rounded-xl">
+                            <table class="w-full text-sm whitespace-nowrap">
+                                <thead id="resultsHead" class="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold"></thead>
+                                <tbody id="resultsBody" class="bg-white divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                        <p id="saveError" class="hidden mt-4 text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-200 font-medium"></p>
+                        <div class="mt-5 flex justify-between items-center flex-wrap gap-3">
+                            <button onclick="goToStep2(true)" class="text-slate-500 hover:text-slate-800 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-slate-100 transition">→ חזור לשיוך</button>
+                            <button id="saveBtn" onclick="saveToFirebase()"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-10 py-3 rounded-xl font-bold shadow-lg transition flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                                </svg>
+                                שמור את כל התלמידים
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ===== LIST TAB ===== -->
+        <div id="tab-list-content" class="hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                    <h2 class="text-base font-bold text-slate-800">תלמידים שהגשתי</h2>
+                    <span id="listCount" class="text-sm text-slate-500 font-medium"></span>
+                </div>
+                <div class="overflow-x-auto scrollbar">
+                    <table class="w-full text-sm text-right">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3 font-bold text-slate-700">שם</th>
+                                <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">ת.ז.</th>
+                                <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">עיר</th>
+                                <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">מייל הורים</th>
+                                <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">סטטוס</th>
+                                <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">תאריך הגשה</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentListBody">
+                            <tr><td colspan="6" class="text-center py-12 text-slate-400 font-medium">טוען נתונים...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // ===== Firebase =====
+        const firebaseConfig = {
+            apiKey: "AIzaSyBjFzsDY5n990Rd2-F_jU8-Y_SKTeswsb8",
+            authDomain: "smartreg26.firebaseapp.com",
+            projectId: "smartreg26",
+            storageBucket: "smartreg26.firebasestorage.app",
+            messagingSenderId: "40501808540",
+            appId: "1:40501808540:web:840e7aa6a136fab1ab0c59"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db   = firebase.firestore();
+
+        // ===== State =====
+        let currentUser     = null;
+        let currentUserData = null;
+        let rawRows         = [];
+        let excelHeaders    = [];
+        let parsedStudents  = [];
+        let activeFields    = [];
+        let unsubscribeList = null;
+
+        // ===== Field definitions =====
+        const FIELDS = [
+            { id: 'ignore',       label: '— התעלם —' },
+            { id: 'lastName',     label: 'שם משפחה',    required: true },
+            { id: 'firstName',    label: 'שם פרטי',     required: true },
+            { id: 'idNumber',     label: 'ת.ז. תלמיד',  required: true },
+            { id: 'passport',     label: 'מספר דרכון' },
+            { id: 'birthDate',    label: 'תאריך לידה' },
+            { id: 'city',         label: 'עיר / ישוב' },
+            { id: 'street',       label: 'רחוב' },
+            { id: 'houseNum',     label: "מס' בית" },
+            { id: 'apt',          label: 'דירה' },
+            { id: 'homePhone',    label: 'טלפון בית' },
+            { id: 'mobile',       label: 'נייד תלמיד' },
+            { id: 'parentEmail',  label: 'מייל הורים' },
+            { id: 'fatherName',   label: 'שם אב',       color: 'text-blue-700' },
+            { id: 'fatherId',     label: 'ת.ז. אב',     color: 'text-blue-700' },
+            { id: 'fatherMobile', label: 'נייד אב',     color: 'text-blue-700' },
+            { id: 'motherName',   label: 'שם אם',       color: 'text-pink-600' },
+            { id: 'motherId',     label: 'ת.ז. אם',     color: 'text-pink-600' },
+            { id: 'motherMobile', label: 'נייד אם',     color: 'text-pink-600' },
+            { id: 'notes',        label: 'הערות',       color: 'text-emerald-700' },
+        ];
+
+        // ===== Auth check =====
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'login.html'; return; }
+            const doc = await db.collection('users').doc(user.uid).get();
+            if (!doc.exists || doc.data().role !== 'feeder') {
+                window.location.href = 'login.html'; return;
+            }
+            currentUser     = user;
+            currentUserData = doc.data();
+            document.getElementById('institutionName').textContent = currentUserData.name || user.email;
+            startListening();
+        });
+
+        function doLogout() {
+            if (unsubscribeList) unsubscribeList();
+            auth.signOut().then(() => window.location.href = 'login.html');
+        }
+
+        // ===== Tabs =====
+        function switchTab(tab) {
+            document.getElementById('tab-upload-content').classList.toggle('hidden', tab !== 'upload');
+            document.getElementById('tab-list-content').classList.toggle('hidden', tab !== 'list');
+            const active   = 'px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-blue-600 text-white shadow';
+            const inactive = 'px-5 py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
+            document.getElementById('tab-upload').className = tab === 'upload' ? active : inactive;
+            document.getElementById('tab-list').className   = tab === 'list'   ? active : inactive;
+        }
+
+        // ===== Step navigation =====
+        function goToStep1() {
+            document.getElementById('step1').classList.remove('hidden');
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3').classList.add('hidden');
+        }
+
+        function goToStep2(fromStep3 = false) {
+            document.getElementById('step1Error').classList.add('hidden');
+            if (!fromStep3) {
+                const input = document.getElementById('excelInput').value.trim();
+                if (!input) {
+                    document.getElementById('step1Error').textContent = 'נא להדביק נתונים תחילה.';
+                    document.getElementById('step1Error').classList.remove('hidden');
+                    return;
+                }
+                parseRawInput(input);
+                buildMappingUI();
+            }
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+            document.getElementById('step3').classList.add('hidden');
+        }
+
+        // ===== Paste & Preview =====
+        document.getElementById('excelInput').addEventListener('input', onInput);
+        document.getElementById('hasHeaders').addEventListener('change', onInput);
+
+        function onInput() {
+            const val = document.getElementById('excelInput').value.trim();
+            if (!val) {
+                document.getElementById('pastePreview').classList.add('hidden');
+                document.getElementById('toStep2Btn').disabled = true;
+                return;
+            }
+            const rows = val.split(/\r?\n/).filter(r => r.trim()).map(r => r.split('\t'));
+            renderPreview(rows);
+            document.getElementById('toStep2Btn').disabled = false;
+        }
+
+        function renderPreview(rows) {
+            const hasH  = document.getElementById('hasHeaders').checked;
+            const thead = document.getElementById('previewHead');
+            const tbody = document.getElementById('previewBody');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+            rows.slice(0, 6).forEach((row, i) => {
+                const tr     = document.createElement('tr');
+                const isHead = hasH && i === 0;
+                row.forEach(cell => {
+                    const el = document.createElement(isHead ? 'th' : 'td');
+                    el.className = isHead
+                        ? 'px-3 py-2 font-bold text-slate-700 border-l border-slate-200 bg-slate-100'
+                        : 'px-3 py-2 border-l border-slate-100 text-slate-600';
+                    el.textContent = cell || '';
+                    tr.appendChild(el);
+                });
+                (isHead ? thead : tbody).appendChild(tr);
+            });
+            document.getElementById('pastePreview').classList.remove('hidden');
+        }
+
+        function clearPaste() {
+            document.getElementById('excelInput').value = '';
+            document.getElementById('pastePreview').classList.add('hidden');
+            document.getElementById('toStep2Btn').disabled = true;
+        }
+
+        function parseRawInput(input) {
+            const hasH = document.getElementById('hasHeaders').checked;
+            const rows = input.split(/\r?\n/).filter(r => r.trim()).map(r => r.split('\t'));
+            const maxCols = Math.max(...rows.map(r => r.length));
+            rawRows = rows.map(r => { while (r.length < maxCols) r.push(''); return r; });
+            excelHeaders = hasH
+                ? rawRows[0].map((h, i) => h.trim() || `(ללא כותרת ${i+1})`)
+                : rawRows[0].map((_, i) => `עמודה ${i+1}`);
+        }
+
+        // ===== Auto-guess Hebrew column names =====
+        function guessField(header) {
+            const h = header.replace(/[\s'"]/g, '');
+            if (/שם.*משפח|משפח/.test(h))                             return 'lastName';
+            if (/שם.*פרט|פרטי/.test(h) && !/משפח/.test(h))          return 'firstName';
+            if (/ת\.?ז|תעודת.*זהות/.test(h) && !/אב|אם/.test(h))    return 'idNumber';
+            if (/דרכון/.test(h) && !/אב|אם/.test(h))                 return 'passport';
+            if (/תאריך.*לידה|לידה/.test(h))                          return 'birthDate';
+            if (/ישוב|עיר/.test(h))                                   return 'city';
+            if (/רחוב/.test(h))                                       return 'street';
+            if (/בית|מס.*בית/.test(h) && !/דירה|טלפ/.test(h))       return 'houseNum';
+            if (/דירה/.test(h))                                       return 'apt';
+            if (/טלפון.*בית|בית.*טלפון/.test(h))                     return 'homePhone';
+            if (/נייד/.test(h) && !/אב|אם/.test(h))                  return 'mobile';
+            if (/מייל|email/i.test(h) && !/אב|אם/.test(h))           return 'parentEmail';
+            if (/שם.*אב|אב.*שם/.test(h))                             return 'fatherName';
+            if (/ת\.?ז.*אב|אב.*ת/.test(h))                           return 'fatherId';
+            if (/נייד.*אב|אב.*נייד|טל.*אב/.test(h))                  return 'fatherMobile';
+            if (/שם.*אם|אם.*שם/.test(h))                             return 'motherName';
+            if (/ת\.?ז.*אם|אם.*ת/.test(h))                           return 'motherId';
+            if (/נייד.*אם|אם.*נייד|טל.*אם/.test(h))                  return 'motherMobile';
+            if (/הערה/.test(h))                                       return 'notes';
+            return 'ignore';
+        }
+
+        // ===== Build mapping UI =====
+        function buildMappingUI() {
+            const headersRow = document.getElementById('mapHeadersRow');
+            const selectsRow = document.getElementById('mapSelectsRow');
+            const dataBody   = document.getElementById('mapDataBody');
+            headersRow.innerHTML = '';
+            selectsRow.innerHTML = '';
+            dataBody.innerHTML   = '';
+
+            const optHTML = FIELDS.map(f => `<option value="${f.id}">${f.label}</option>`).join('');
+            const hasH    = document.getElementById('hasHeaders').checked;
+
+            excelHeaders.forEach((header, i) => {
+                const th = document.createElement('th');
+                th.className = 'px-4 py-3 border-r border-slate-200 min-w-[160px] text-slate-700 font-bold';
+                th.textContent = header;
+                headersRow.appendChild(th);
+
+                const thS = document.createElement('th');
+                thS.className = 'px-3 py-2 border-r border-slate-200 min-w-[160px]';
+                const sel = document.createElement('select');
+                sel.id = `map_${i}`;
+                sel.className = 'w-full p-1.5 border border-blue-200 rounded-lg text-sm text-slate-700 bg-white focus:ring-2 focus:ring-blue-300 outline-none cursor-pointer';
+                sel.innerHTML = optHTML;
+                sel.value = guessField(header);
+                thS.appendChild(sel);
+                selectsRow.appendChild(thS);
+            });
+
+            const start = hasH ? 1 : 0;
+            for (let r = start; r < Math.min(rawRows.length, start + 4); r++) {
+                if (!rawRows[r].join('').trim()) continue;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-blue-50/20';
+                rawRows[r].forEach(cell => {
+                    const td = document.createElement('td');
+                    td.className = 'px-4 py-2 border-r border-slate-100';
+                    td.dir = 'auto';
+                    td.textContent = cell || '';
+                    tr.appendChild(td);
+                });
+                dataBody.appendChild(tr);
+            }
+        }
+
+        // ===== Validation =====
+        function validateID(val) {
+            if (!val) return { valid: true, formatted: '' };
+            const s = String(val).replace(/\D/g, '').padStart(9, '0');
+            if (s.length > 9) return { valid: false, formatted: val };
+            let sum = 0;
+            for (let i = 0; i < 9; i++) { let x = parseInt(s[i]) * ((i%2)+1); sum += x > 9 ? x-9 : x; }
+            return { valid: sum % 10 === 0, formatted: s };
+        }
+
+        function validatePhone(val) {
+            if (!val) return { valid: true, formatted: '' };
+            const c = String(val).replace(/\D/g, '');
+            if (/^0\d{8,9}$/.test(c)) {
+                return { valid: true, formatted: (c.startsWith('05') || c.startsWith('07')) ? `${c.slice(0,3)}-${c.slice(3)}` : `${c.slice(0,2)}-${c.slice(2)}` };
+            }
+            return { valid: false, formatted: val };
+        }
+
+        function processField(fieldId, value) {
+            if (['idNumber','fatherId','motherId'].includes(fieldId)) return validateID(value);
+            if (['homePhone','mobile','fatherMobile','motherMobile'].includes(fieldId)) return validatePhone(value);
+            return { valid: true, formatted: String(value || '').trim() };
+        }
+
+        // ===== Process data =====
+        function processData() {
+            const errDiv = document.getElementById('step2Error');
+            errDiv.classList.add('hidden');
+
+            const hasH    = document.getElementById('hasHeaders').checked;
+            const start   = hasH ? 1 : 0;
+            const mapping = excelHeaders.map((_, i) => document.getElementById(`map_${i}`).value);
+
+            // Check required fields
+            const missing = FIELDS.filter(f => f.required && !mapping.includes(f.id)).map(f => f.label);
+            if (missing.length) {
+                errDiv.textContent = `חסרים שדות חובה: ${missing.join(', ')}`;
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Check duplicates in mapping
+            const active = mapping.filter(m => m !== 'ignore');
+            const dups   = [...new Set(active.filter((m, i) => active.indexOf(m) !== i))];
+            if (dups.length) {
+                const labels = dups.map(id => FIELDS.find(f => f.id === id)?.label || id);
+                errDiv.textContent = `שיוך כפול לשדות: ${labels.join(', ')}`;
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            parsedStudents = [];
+            for (let r = start; r < rawRows.length; r++) {
+                if (!rawRows[r].join('').trim()) continue;
+                const student = { _errors: {} };
+                let hasData   = false;
+                rawRows[r].forEach((cell, ci) => {
+                    const field = mapping[ci];
+                    if (!field || field === 'ignore') return;
+                    const { valid, formatted } = processField(field, cell);
+                    student[field] = formatted;
+                    if (formatted) hasData = true;
+                    if (formatted && !valid) student._errors[field] = true;
+                });
+                if (hasData) parsedStudents.push(student);
+            }
+
+            activeFields = FIELDS.filter(f => f.id !== 'ignore' && parsedStudents.some(s => s[f.id]));
+            buildResultsTable();
+
+            const errCount = parsedStudents.filter(s => Object.keys(s._errors).length > 0).length;
+            document.getElementById('step3Summary').innerHTML =
+                `<span>סה"כ תלמידים לשמירה: <strong class="text-blue-700">${parsedStudents.length}</strong></span>` +
+                (errCount > 0
+                    ? `<span class="text-red-600 font-bold">⚠ ${errCount} שורות עם שגיאות אפשריות — בדוק לפני שמירה</span>`
+                    : `<span class="text-green-600">✓ אין שגיאות אוטומטיות</span>`);
+
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3').classList.remove('hidden');
+        }
+
+        function buildResultsTable() {
+            document.getElementById('resultsHead').innerHTML =
+                '<tr>' + activeFields.map(f => `<th class="px-4 py-3 border-r border-slate-200 ${f.color||''}">${f.label}</th>`).join('') + '</tr>';
+            document.getElementById('resultsBody').innerHTML = parsedStudents.map((s, ri) =>
+                '<tr class="hover:bg-blue-50/20">' + activeFields.map(f => {
+                    const err = s._errors && s._errors[f.id];
+                    return `<td class="px-3 py-2 border-r border-slate-100 ${err ? 'bg-red-50' : ''}" ${err ? 'title="ייתכן שגיאה"' : ''}>
+                        <div contenteditable="true" onblur="editCell(this,${ri},'${f.id}')"
+                            class="outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 min-h-[22px] ${err ? 'text-red-700 font-semibold' : ''}" dir="auto">
+                            ${s[f.id] || ''}</div></td>`;
+                }).join('') + '</tr>'
+            ).join('');
+        }
+
+        function editCell(el, ri, fieldId) {
+            const { valid, formatted } = processField(fieldId, el.textContent.trim());
+            parsedStudents[ri][fieldId] = formatted;
+            if (el.textContent !== formatted) el.textContent = formatted;
+            parsedStudents[ri]._errors[fieldId] = formatted !== '' && !valid;
+            const td = el.closest('td');
+            td.className = `px-3 py-2 border-r border-slate-100 ${parsedStudents[ri]._errors[fieldId] ? 'bg-red-50' : ''}`;
+        }
+
+        // ===== Save to Firebase =====
+        async function saveToFirebase() {
+            if (!currentUser || !currentUserData) return;
+            const btn    = document.getElementById('saveBtn');
+            const errDiv = document.getElementById('saveError');
+            errDiv.classList.add('hidden');
+
+            btn.innerHTML = '<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> שומר...';
+            btn.disabled = true;
+
+            try {
+                // Load existing IDs for this yeshiva
+                const existing = await db.collection('students')
+                    .where('yeshivaId', '==', currentUserData.yeshivaId)
+                    .get();
+                const existingIds = new Set(existing.docs.map(d => d.data().idNumber).filter(Boolean));
+
+                const batch = db.batch();
+                let saved = 0, skipped = 0;
+
+                for (const student of parsedStudents) {
+                    if (!student.idNumber) { skipped++; continue; }
+                    if (existingIds.has(student.idNumber)) { skipped++; continue; }
+
+                    const { _errors, ...clean } = student;
+                    const docId = `${currentUserData.yeshivaId}_${student.idNumber}`;
+                    batch.set(db.collection('students').doc(docId), {
+                        ...clean,
+                        feederUid:   currentUser.uid,
+                        feederName:  currentUserData.name,
+                        yeshivaId:   currentUserData.yeshivaId,
+                        status:      'pending',
+                        uploadedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+                    });
+                    saved++;
+                }
+
+                if (saved === 0) {
+                    errDiv.textContent = skipped > 0
+                        ? `כל התלמידים כבר קיימים במערכת (${skipped} כפולים).`
+                        : 'לא נמצאו תלמידים לשמירה.';
+                    errDiv.classList.remove('hidden');
+                    return;
+                }
+
+                await batch.commit();
+                alert(`✓ נשמרו בהצלחה ${saved} תלמידים${skipped > 0 ? `\n(${skipped} דולגו — ת.ז. כבר קיימת)` : ''}`);
+                clearPaste();
+                goToStep1();
+                switchTab('list');
+
+            } catch(e) {
+                console.error(e);
+                errDiv.textContent = `שגיאה בשמירה: ${e.message}`;
+                errDiv.classList.remove('hidden');
+            } finally {
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> שמור את כל התלמידים';
+                btn.disabled = false;
+            }
+        }
+
+        // ===== Real-time student list =====
+        function startListening() {
+            if (!currentUser) return;
+            unsubscribeList = db.collection('students')
+                .where('feederUid', '==', currentUser.uid)
+                .onSnapshot(snap => {
+                    updateStats(snap);
+                    renderList(snap);
+                });
+        }
+
+        function updateStats(snap) {
+            let total = 0, pending = 0, approved = 0, rejected = 0;
+            snap.forEach(d => {
+                total++;
+                const s = d.data().status;
+                if (s === 'pending')  pending++;
+                if (s === 'approved') approved++;
+                if (s === 'rejected') rejected++;
+            });
+            document.getElementById('statTotal').textContent    = total;
+            document.getElementById('statPending').textContent  = pending;
+            document.getElementById('statApproved').textContent = approved;
+            document.getElementById('statRejected').textContent = rejected;
+        }
+
+        function renderList(snap) {
+            const tbody = document.getElementById('studentListBody');
+            document.getElementById('listCount').textContent = snap.size ? `${snap.size} תלמידים` : '';
+            if (snap.empty) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-400 font-medium">לא הוגשו תלמידים עדיין</td></tr>';
+                return;
+            }
+            const statusLabel = { pending: 'ממתין', approved: 'התקבל', rejected: 'לא התקבל' };
+            const statusCls   = { pending: 'bg-amber-100 text-amber-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700' };
+            const docs = snap.docs.slice().sort((a,b) => {
+                const ta = a.data().uploadedAt?.toDate?.() || 0;
+                const tb = b.data().uploadedAt?.toDate?.() || 0;
+                return tb - ta;
+            });
+            tbody.innerHTML = docs.map(doc => {
+                const s   = doc.data();
+                const dt  = s.uploadedAt?.toDate?.();
+                const dateStr = dt ? `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}` : '—';
+                return `<tr class="hover:bg-slate-50 transition">
+                    <td class="px-4 py-3 font-semibold text-slate-800">${s.lastName || ''} ${s.firstName || ''}</td>
+                    <td class="px-4 py-3 font-mono text-slate-600 border-r border-slate-100">${s.idNumber || ''}</td>
+                    <td class="px-4 py-3 text-slate-600 border-r border-slate-100">${s.city || ''}</td>
+                    <td class="px-4 py-3 text-slate-600 border-r border-slate-100">${s.parentEmail || ''}</td>
+                    <td class="px-4 py-3 border-r border-slate-100"><span class="px-3 py-1 rounded-full text-xs font-bold ${statusCls[s.status] || 'bg-slate-100 text-slate-600'}">${statusLabel[s.status] || s.status}</span></td>
+                    <td class="px-4 py-3 text-slate-500 border-r border-slate-100">${dateStr}</td>
+                </tr>`;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
