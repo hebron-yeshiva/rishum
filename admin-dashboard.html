@@ -106,12 +106,13 @@
                             <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">עיר</th>
                             <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">מייל הורים</th>
                             <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">תאריך הגשה</th>
+                            <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">שליחה</th>
                             <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">סטטוס</th>
                             <th class="px-4 py-3 font-bold text-slate-700 border-r border-slate-200">פעולות</th>
                         </tr>
                     </thead>
                     <tbody id="studentsBody">
-                        <tr><td colspan="8" class="text-center py-16 text-slate-400 font-medium">טוען נתונים...</td></tr>
+                        <tr><td colspan="9" class="text-center py-16 text-slate-400 font-medium">טוען נתונים...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -143,6 +144,10 @@
                     <button onclick="setStatus('pending')"
                         class="bg-amber-400 hover:bg-amber-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition">
                         ממתין
+                    </button>
+                    <button id="lockToggleBtn" onclick="toggleStudentLock()"
+                        class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2.5 rounded-xl font-bold text-sm transition">
+                        🔓 פתח לעריכה
                     </button>
                 </div>
                 <button onclick="closeModal('detailModal')" class="text-slate-500 hover:text-slate-800 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-slate-100 transition">
@@ -360,7 +365,7 @@
         function renderTable() {
             const tbody = document.getElementById('studentsBody');
             if (!filtered.length) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-16 text-slate-400 font-medium">לא נמצאו תלמידים</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-16 text-slate-400 font-medium">לא נמצאו תלמידים</td></tr>';
                 return;
             }
             tbody.innerHTML = filtered.map(s => {
@@ -373,6 +378,11 @@
                     <td class="px-4 py-3 text-slate-600 border-r border-slate-100">${s.city||''}</td>
                     <td class="px-4 py-3 text-slate-500 border-r border-slate-100">${s.parentEmail||''}</td>
                     <td class="px-4 py-3 text-slate-500 border-r border-slate-100">${ds}</td>
+                    <td class="px-4 py-3 border-r border-slate-100">
+                        ${s.submitted
+                            ? `<span class="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">✓ נשלח</span>`
+                            : `<span class="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">טיוטה</span>`}
+                    </td>
                     <td class="px-4 py-3 border-r border-slate-100">
                         <span class="px-3 py-1 rounded-full text-xs font-bold ${statusCls[s.status]||'bg-slate-100 text-slate-600'}">
                             ${statusLabel[s.status]||s.status}
@@ -458,6 +468,18 @@
                     </button>
                 </div>`;
 
+            // Lock toggle button label
+            const lockBtn = document.getElementById('lockToggleBtn');
+            if (s.submitted) {
+                lockBtn.textContent = '🔓 פתח לעריכה';
+                lockBtn.classList.remove('bg-blue-100','text-blue-700','hover:bg-blue-200');
+                lockBtn.classList.add('bg-slate-200','text-slate-700','hover:bg-slate-300');
+            } else {
+                lockBtn.textContent = '🔒 נעל לעריכה';
+                lockBtn.classList.remove('bg-slate-200','text-slate-700','hover:bg-slate-300');
+                lockBtn.classList.add('bg-blue-100','text-blue-700','hover:bg-blue-200');
+            }
+
             document.getElementById('detailModal').classList.remove('hidden');
         }
 
@@ -493,6 +515,21 @@
                     statusUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     statusUpdatedBy: currentUser.uid
                 });
+            } catch(e) { alert('שגיאה: ' + e.message); }
+        }
+
+        async function toggleStudentLock() {
+            if (!selectedDocId) return;
+            const s = allStudents.find(x => x._docId === selectedDocId);
+            if (!s) return;
+            const newSubmitted = !s.submitted;
+            const msg = newSubmitted
+                ? 'לנעול את הרשומה? הישיבה הקטנה לא תוכל לערוך.'
+                : 'לפתוח את הרשומה לעריכה? הישיבה הקטנה תוכל לשנות פרטים.';
+            if (!confirm(msg)) return;
+            try {
+                await db.collection('students').doc(selectedDocId).update({ submitted: newSubmitted });
+                closeModal('detailModal');
             } catch(e) { alert('שגיאה: ' + e.message); }
         }
 
