@@ -612,9 +612,11 @@ Array length MUST equal ${headers.length}. Use "ignore" for unknown/serial colum
 
             if (adminViewUid && (role === 'admin' || role === 'superadmin')) {
                 // Admin impersonation mode
-                const feederDoc = await db.collection('users').doc(adminViewUid).get();
+                let feederDoc;
+                try { feederDoc = await db.collection('users').doc(adminViewUid).get(); }
+                catch(e) { document.body.innerHTML = `<div style="padding:2rem;color:red;font-family:sans-serif">שגיאת Firestore: ${e.message}</div>`; return; }
                 if (!feederDoc.exists || feederDoc.data().role !== 'feeder') {
-                    alert('ישיבה קטנה לא נמצאה.');
+                    alert('ישיבה קטנה לא נמצאה (uid: ' + adminViewUid + ')');
                     window.close();
                     return;
                 }
@@ -1135,13 +1137,24 @@ Array length MUST equal ${headers.length}. Use "ignore" for unknown/serial colum
         // ===== Real-time student list =====
         function startListening() {
             if (!currentUser) return;
-            unsubscribeList = db.collection('students')
-                .where('feederUid', '==', currentUser.uid)
-                .onSnapshot(snap => {
-                    cachedSnap = snap;
-                    updateStats(snap);
-                    renderList(snap);
-                });
+            // In admin impersonation mode the authenticated user is the admin,
+            // so we query by yeshivaId (admin has permission) and filter client-side by feederUid.
+            // In normal feeder mode we query directly by feederUid.
+            const query = isAdminView
+                ? db.collection('students').where('yeshivaId', '==', currentUserData.yeshivaId)
+                : db.collection('students').where('feederUid', '==', currentUser.uid);
+
+            unsubscribeList = query.onSnapshot(snap => {
+                // Filter to only this feeder's students when in admin view
+                const filtered = isAdminView
+                    ? { docs: snap.docs.filter(d => d.data().feederUid === currentUser.uid),
+                        size: snap.docs.filter(d => d.data().feederUid === currentUser.uid).length,
+                        empty: snap.docs.filter(d => d.data().feederUid === currentUser.uid).length === 0 }
+                    : snap;
+                cachedSnap = filtered;
+                updateStats(filtered);
+                renderList(filtered);
+            });
         }
 
         function updateStats(snap) {
